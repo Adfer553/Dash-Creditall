@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creditall – Inteligência de Rentabilidade</title>
+<link href="https://fonts.googleapis.com/css2?family=Sansation:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+<style>
+/* VARIÁVEIS DE TEMA */
+:root {
+  --bg:          #F4F6F8;
+  --card:        #FFFFFF;
+  --card2:       #F9FAFB;
+  --border:      #E5E7EB;
+  --text:        #111827;
+  --text-muted:  #6B7280;
+  --text-dim:    #9CA3AF;
+  --red:         #E31937;
+  --red-dark:    #B5102A;
+  --red-glow:    rgba(227,25,55,.12);
+  --gray50:      #959595;
+  --green:       #10B981;
+  --green-glow:  rgba(16, 185, 129, 0.12);
+  --orange:      #F59E0B;
+  --chart-grid:  #E5E7EB;
+  --label-color: #111827;
+}
+
+[data-theme="dark"] {
+  --bg:          #161616;
+  --card:        #1f1f1f;
+  --card2:       #252525;
+  --border:      #2e2e2e;
+  --text:        #FFFFFF;
+  --text-muted:  #959595;
+  --text-dim:    #5a5a5a;
+  --red-glow:    rgba(227,25,55,.18);
+  --green-glow:  rgba(16, 185, 129, 0.18);
+  --chart-grid:  #2a2a2a;
+  --label-color: #FFFFFF;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body { font-family:'Sansation',Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; transition:background 0.3s, color 0.3s; }
+
+/* LOADING OVERLAY */
+#loadingOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; gap:20px; transition: opacity 0.4s ease; }
+@keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(227,25,55, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(227,25,55, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(227,25,55, 0); } }
+.loading-logo { width:70px; height:70px; background:var(--red); border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:2rem; color:#fff; animation: pulse 1.5s infinite; }
+.loading-text { font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:2px; font-size: 0.8rem; text-align:center; padding: 0 20px;}
+.btn-fechar-loading { margin-top: 15px; padding: 8px 16px; background: var(--text-dim); color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; display: none; }
+
+/* HEADER E ABAS */
+.header{ background:var(--card); padding:0 24px; height:54px; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--red); box-shadow:0 2px 5px rgba(0,0,0,.05); position:relative; z-index:100; }
+.logo-area{display:flex;align-items:center;gap:12px}
+.logo-icon{ width:30px;height:30px;background:var(--red);border-radius:6px; display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:#fff }
+.logo-text{font-size:.9rem;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.logo-text span{color:var(--red)}
+
+.header-controls { display: flex; align-items: center; gap: 20px; height: 100%; }
+.tabs { display: flex; gap: 8px; height: 100%; align-items: flex-end; }
+.tab { padding: 12px 20px; border-radius: 6px 6px 0 0; font-size: .75rem; font-weight: 700; cursor: pointer; border: 1px solid transparent; border-bottom: none; background: transparent; color: var(--text-muted); text-transform: uppercase; transition: .2s; margin-bottom: -2px; }
+.tab.active { background: var(--bg); color: var(--red); border-color: var(--red); border-bottom: 2px solid var(--bg); z-index: 2; }
+.tab:hover:not(.active) { color: var(--red); }
+.btn-tema { background: var(--card2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.btn-tema:hover { border-color: var(--red); color: var(--red); }
+
+/* LAYOUT PRINCIPAL & SIDEBAR */
+.main { display:flex; height:calc(100vh - 54px); width: 100vw; overflow: hidden; }
+.sidebar { width:220px; min-width:220px; background:var(--card); border-right:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+.sidebar-section-title { font-size:.6rem;font-weight:700;color:var(--red);text-transform:uppercase; letter-spacing:1px;padding-bottom:4px;border-bottom:1px solid var(--border); }
+.filter-group { display:flex;flex-direction:column;gap:4px }
+.filter-label { font-size:.65rem;color:var(--text-muted);font-weight:700;text-transform:uppercase }
+.filter-group select, .filter-group input { background:var(--card2);border:1px solid var(--border);color:var(--text); border-radius:4px;padding:7px;font-size:.75rem;font-weight:700;outline:none; width:100%; transition:.2s; }
+.filter-group input:focus, .filter-group select:focus { border-color:var(--red); box-shadow:0 0 0 2px var(--red-glow); }
+.btn-upload { background: var(--card2); color: var(--text-muted); border: 1px dashed var(--text-dim); border-radius: 4px; padding: 10px 8px; font-size: .7rem; font-weight: 700; cursor: pointer; text-transform: uppercase; text-align: center; display: block; margin-bottom:0; transition:0.2s;}
+.btn-upload:hover { border-color: var(--red); color: var(--red); background: var(--red-glow); }
+.sidebar-info { margin-top:auto;padding-top:10px;border-top:1px solid var(--border) }
+.info-label { font-size:.58rem;color:var(--text-dim);text-transform:uppercase; }
+.info-value { font-size:.75rem;color:var(--red);font-weight:700;margin-top:2px; transition: 0.3s; }
+
+/* CONTEÚDO */
+.content { flex:1; min-width: 0; padding:16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; overflow-x:hidden; }
+.tab-pane { display: none; flex-direction: column; gap: 12px; flex: 1; min-height: 0; animation: fadeIn 0.3s ease; }
+.tab-pane.active { display: flex; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* KPIS */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; flex-shrink:0; }
+.kpi-card { background:var(--card);border-radius:4px;padding:12px; border:1px solid var(--border); position:relative;overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.03); transition: 0.2s; cursor:pointer;}
+.kpi-card::after { content:'';position:absolute;bottom:0;left:0;width:100%;height:3px; background:linear-gradient(90deg,var(--red),transparent) }
+.kpi-card.kpi-green::after { background:linear-gradient(90deg,var(--green),transparent) }
+.kpi-card.kpi-gray::after { background:linear-gradient(90deg,var(--gray50),transparent) }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,.08); border-color: var(--border); }
+.kpi-card.active-filter { border: 2px solid var(--text); background: var(--card2); }
+.kpi-label { font-size:.58rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;margin-bottom:6px; line-height:1.1; }
+.kpi-value { font-size:1.1rem;font-weight:700;color:var(--text);line-height:1; transition: 0.3s; }
+.kpi-value.green { color: var(--green); }
+.kpi-value.red { color: var(--red); }
+.kpi-sub { font-size:.58rem;color:var(--text-muted);margin-top:4px }
+
+/* DIVISOR */
+.section-divider { display:flex;align-items:center;gap:10px; font-size:.65rem;font-weight:700;color:var(--red);text-transform:uppercase; margin-top:4px; flex-shrink:0;}
+.section-divider::after { content:'';flex:1;height:1px;background:var(--border) }
+
+/* CHARTS & CARDS */
+.chart-row-2 { display:grid; grid-template-columns: 2fr 1fr; gap:12px; flex-shrink:0; width: 100%; }
+.chart-row-half { display:grid; grid-template-columns: 1fr 1fr; gap:12px; flex-shrink:0; width: 100%; }
+.card { background:var(--card);border-radius:4px;padding:14px;border:1px solid var(--border);box-shadow: 0 1px 3px rgba(0,0,0,.04); display:flex; flex-direction:column; min-width:0; overflow:hidden;}
+.card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;}
+.card-title { font-size:.7rem;font-weight:700;color:var(--text); display:flex;align-items:center;gap:6px;text-transform:uppercase; margin-bottom:10px;}
+.card-title .line { width:12px;height:2px;background:var(--red);border-radius:2px; }
+.chart-wrap { position:relative; height:220px; width:100%; flex-shrink:0; }
+.chart-wrap-tall { position:relative; height:280px; width:100%; flex-shrink:0; }
+
+/* ABA DETALHAMENTO (TABELA E RANKING) */
+.aba-detalhamento-container { display: flex; gap: 12px; height: 100%; flex: 1; min-height: 0; }
+.table-card { flex: 2; display:flex; flex-direction:column; overflow:hidden; height: 500px; }
+.ranking-card { flex: 1; display:flex; flex-direction:column; overflow:hidden; height: 500px; }
+.table-scroll { flex:1; overflow-y:auto; overflow-x:auto; width:100%; max-height:100%; }
+table { width:100%; border-collapse:collapse; font-size:.7rem; min-width: 650px; }
+thead { position: sticky; top: 0; z-index: 10; }
+thead tr { background:var(--card2) }
+th { padding:8px 10px;text-align:left;color:var(--red); font-weight:700;text-transform:uppercase;font-size:.6rem; border-bottom:2px solid var(--border); white-space: nowrap; }
+td { padding:7px 10px;color:var(--text);border-bottom:1px solid var(--border); white-space: nowrap; cursor:default; }
+tbody tr:hover { background:var(--card2) }
+.ranking-scroll-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 5px; height: 100%; width: 100%; display: block; }
+.ranking-canvas-wrapper { position: relative; width: 100%; display: block; }
+
+/* BOTÕES E TAGS */
+.btn-action { background: var(--green); color: white; border: none; padding: 6px 10px; border-radius: 3px; font-size: 0.65rem; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+.btn-action:hover { opacity: 0.9; }
+.btn-action-clear { background: var(--gray50); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; display: inline-flex; }
+.btn-action-clear.show-btn { opacity: 1; pointer-events: auto; }
+.tag { display:inline-block;padding:3px 8px;border-radius:3px; font-size:.6rem;font-weight:700;text-transform:uppercase }
+.tag-green { background:var(--green-glow);color:var(--green);border:1px solid rgba(16, 185, 129, 0.2) }
+.tag-red { background:var(--red-glow);color:var(--red);border:1px solid rgba(227,25,55,.2) }
+.tag-gray { background:var(--card2);color:var(--text-muted);border:1px solid var(--border) }
+.login-tag { font-size: 0.6rem; color: var(--text-dim); background: var(--card2); padding: 2px 5px; border-radius: 3px; border: 1px solid var(--border); margin-right: 5px; }
+.text-right { text-align: right; }
+::-webkit-scrollbar { width:6px;height:6px }
+::-webkit-scrollbar-track { background:var(--bg) }
+::-webkit-scrollbar-thumb { background:var(--text-dim);border-radius:4px }
+
+@media (max-width: 1024px) {
+  .chart-row-2, .aba-detalhamento-container { grid-template-columns: 1fr; flex-direction: column; }
+  .table-card, .ranking-card { height: 400px; width: 100%; flex:none; }
+}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="loading-logo">C</div>
+  <div class="loading-text" id="loadingText">Sincronizando com a Nuvem...</div>
+  <button id="btnFecharLoading" class="btn-fechar-loading" onclick="esconderLoading()">Fechar e Continuar</button>
+</div>
+
+<div class="header">
+  <div class="logo-area">
+    <div class="logo-icon">C</div>
+    <div>
+      <div class="logo-text">Credit<span>all</span></div>
+      <div class="logo-sub">Inteligência de Rentabilidade</div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <div class="tabs">
+      <button class="tab active" data-target="visao">Visão Estratégica</button>
+      <button class="tab" data-target="detalhamento">Extrato e Ranking</button>
+    </div>
+    <button id="btnTema" class="btn-tema" onclick="alternarTema()">🌙 Modo Escuro</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-section-title">Base de Dados</div>
+    <label class="btn-upload" for="inputBse">
+      📥 Importar Relatório<br><span style="font-size: 0.55rem; color: var(--text-dim); font-weight: 300; text-transform: none;">Arquivo Excel (.xlsx)</span>
+    </label>
+    <input type="file" id="inputBse" accept=".csv, .xlsx, .xls" style="display: none;">
+
+    <div class="sidebar-section-title" style="margin-top: 10px;">Filtros</div>
+    
+    <div class="filter-group">
+      <div class="filter-label">Buscar Lojista</div>
+      <input type="text" id="inputBusca" placeholder="Nome ou Login..." onkeyup="filtrarVisao(visaoAtual)" title="Digite o nome ou o código de login">
+    </div>
+
+    <div class="filter-group" style="margin-top: 8px;">
+      <div class="filter-label">Janela de Tempo</div>
+      <select id="filtroPeriodo" onchange="filtrarVisao(visaoAtual)">
+        <option value="12">Acumulado 12 Meses</option>
+        <option value="6">Acumulado 6 Meses</option>
+        <option value="3">Acumulado 3 Meses</option>
+      </select>
+    </div>
+
+    <div class="sidebar-info">
+      <div class="info-label">Lojistas Encontrados</div>
+      <div class="info-value" id="totalLojistas">0</div>
+      <div class="info-sub">Base ativa na lista</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="kpi-row">
+      <div class="kpi-card kpi-clickable active-filter" id="cardGeral" onclick="filtrarVisao('TODOS')" title="Remover filtros">
+        <div class="kpi-label">Total Depositado</div>
+        <div class="kpi-value" id="kpiDepositado">R$ 0,00</div>
+        <div class="kpi-sub" id="kpiDepSub">Montante Bruto (Carteira)</div>
+      </div>
+      
+      <div class="kpi-card kpi-green">
+        <div class="kpi-label">Valor Líquido (Lucro)</div>
+        <div class="kpi-value green" id="kpiLiquido">R$ 0,00</div>
+        <div class="kpi-sub" id="kpiLiqSub">Rentabilidade Total</div>
+      </div>
+      
+      <div class="kpi-card kpi-green kpi-clickable" id="cardPositivos" onclick="filtrarVisao('POSITIVOS')" title="Filtrar Positivos">
+        <div class="kpi-label">🟢 Lojistas Positivos</div>
+        <div class="kpi-value green" id="kpiPositivos">0</div>
+        <div class="kpi-sub" style="color:var(--green)">Clique para filtrar</div>
+      </div>
+      
+      <div class="kpi-card kpi-clickable" id="cardNegativos" onclick="filtrarVisao('NEGATIVOS')" title="Filtrar Negativos">
+        <div class="kpi-label">🔴 Lojistas Negativos</div>
+        <div class="kpi-value red" id="kpiNegativos">0</div>
+        <div class="kpi-sub" style="color:var(--red)">Clique para filtrar</div>
+      </div>
+      
+      <div class="kpi-card kpi-gray kpi-clickable" id="cardInativos" onclick="filtrarVisao('INATIVOS')" title="Filtrar Inativos">
+        <div class="kpi-label">⚪ Lojistas Inativos</div>
+        <div class="kpi-value" id="kpiInativos">0</div>
+        <div class="kpi-sub">Sem operação (Clique)</div>
+      </div>
+    </div>
+
+    <div id="aba-visao" class="tab-pane active">
+      <div class="section-divider">Saúde Financeira e Evolução</div>
+      <div class="chart-row-2">
+        <div class="card">
+          <div class="card-title"><span class="line"></span>Desempenho Geral: Depositado vs. Rentabilidade</div>
+          <div class="chart-wrap"><canvas id="chartEvolucao"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="line"></span>Distribuição da Carteira (Qtd.)</div>
+          <div class="chart-wrap"><canvas id="chartCarteira"></canvas></div>
+        </div>
+      </div>
+      
+      <div class="section-divider">Análise de Risco e Volume</div>
+      <div class="chart-row-half">
+        <div class="card">
+          <div class="card-title"><span class="line" style="background:var(--gray50)"></span>Top 10 Maiores Volumes Depositados</div>
+          <div class="chart-wrap-tall"><canvas id="chartTopVolumes"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="line" style="background:var(--orange)"></span>Mapa de Risco: Maiores Inadimplências (%)</div>
+          <div class="chart-wrap-tall"><canvas id="chartInadimplencia"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="aba-detalhamento" class="tab-pane">
+      <div class="section-divider">Análise de Performance por Lojista</div>
+      <div class="aba-detalhamento-container">
+        
+        <div class="card table-card">
+          <div class="card-header-flex">
+            <div class="card-title" id="tituloTabela" style="margin-bottom:0;"><span class="line"></span>Extrato Analítico</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn-action btn-action-clear" onclick="limparBuscaEFiltro()" id="btnLimparFiltro">Limpar Filtros</button>
+              <button class="btn-action" onclick="exportarCSV()">📥 Exportar .CSV</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lojista / Operação</th>
+                  <th class="text-right">Depositado (R$)</th>
+                  <th class="text-right">Valor Líquido (R$)</th>
+                  <th class="text-right">Rentabilidade</th>
+                  <th>Taxa Mensal</th>
+                  <th class="text-right">Inadimp.</th>
+                  <th class="text-right">Aprov.</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaLojistas"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card ranking-card">
+          <div class="card-title" id="tituloGraficoRanking"><span class="line"></span>Ranking de Rentabilidade (Infinito)</div>
+          <div class="ranking-scroll-container">
+             <div id="rankingCanvasWrapper" class="ranking-canvas-wrapper">
+                <canvas id="chartTopLojistas"></canvas>
+             </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+const fmt = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+const fmtK = v => v>=1e6 ? 'R$ '+(v/1e6).toFixed(2).replace('.',',')+'M' : v>=1e3 ? 'R$ '+(v/1e3).toFixed(1).replace('.',',')+'K' : fmt(v);
+function getCssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+const truncate = (str, maxLength) => str && str.length > maxLength ? str.substring(0, maxLength) + '...' : (str || "");
+
+Chart.defaults.set('plugins.datalabels', {
+  display: true, 
+  color: (context) => getCssVar('--label-color'),
+  font: { size: 10, family: 'Sansation', weight: 'bold' },
+  formatter: (value) => {
+    if (value === 0 || value === null || value === undefined) return '';
+    return value >= 1000 || value <= -1000 ? (value / 1000).toFixed(1) + 'K' : value.toFixed(0);
+  }
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', (e) => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+    const target = e.target.getAttribute('data-target');
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('aba-' + target).classList.add('active');
+  });
+});
+function navegarParaAba(idAba) { document.querySelector(`.tab[data-target="${idAba}"]`).click(); }
+function alternarTema() {
+  const html = document.documentElement;
+  const novoTema = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', novoTema);
+  document.getElementById('btnTema').innerHTML = novoTema === 'dark' ? '☀️ Modo Claro' : '🌙 Modo Escuro';
+  filtrarVisao(visaoAtual); 
+}
+
+function mostrarLoading(texto) {
+  document.getElementById('loadingText').innerHTML = texto;
+  document.getElementById('btnFecharLoading').style.display = 'none';
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('loadingOverlay').style.opacity = '1';
+}
+
+function mostrarErroLoading(texto) {
+  document.getElementById('loadingText').innerHTML = `<span style="color:var(--red)">${texto}</span>`;
+  document.getElementById('btnFecharLoading').style.display = 'block';
+}
+
+function esconderLoading() {
+  document.getElementById('loadingOverlay').style.opacity = '0';
+  setTimeout(() => document.getElementById('loadingOverlay').style.display = 'none', 400);
+}
+
+// LÓGICA CORE: VARIÁVEIS GLOBAIS
+let DADOS_DASH = {};
+let DADOS_LOJISTAS = [];
+let charts = {};
+let visaoAtual = 'TODOS'; 
+let lojistasParaExibir = [];
+
+// CONVERSOR DE NÚMERO BLINDADO PARA EXCEL
+function parseNumero(valor) {
+  if (typeof valor === 'number') return valor;
+  if (!valor) return 0;
+  let str = valor.toString().replace(/R\$/g, '').replace(/%/g, '').trim();
+  if (str === '' || str === '-') return 0;
+  if (str.indexOf(',') > -1 && str.indexOf('.') > -1) { str = str.replace(/\./g, '').replace(',', '.'); } 
+  else if (str.indexOf(',') > -1) { str = str.replace(',', '.'); }
+  let num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
+
+// MOTOR BLINDADO QUE LÊ QUALQUER ARQUIVO EXCEL
+function processarPlanilhaLocal(workbook) {
+  try {
+    // 1. Procurar a Aba principal (analise_rentabilidade ou a primeira disponível)
+    let analiseSheetName = workbook.SheetNames.find(sn => sn.toLowerCase().includes('analise')) || workbook.SheetNames[0];
+    let analiseSheet = workbook.Sheets[analiseSheetName];
+    
+    let arr = XLSX.utils.sheet_to_json(analiseSheet, {header: 1});
+    let headerIdx = 0;
+    
+    // Procura dinamicamente onde estão os cabeçalhos reais (procurando a palavra "login" ou "nome") nas primeiras 20 linhas
+    for(let i=0; i < Math.min(arr.length, 20); i++) {
+      if(arr[i] && arr[i].some(c => typeof c === 'string' && (c.toLowerCase().includes('login') || c.toLowerCase().includes('depositado')))) {
+        headerIdx = i; break;
+      }
+    }
+    
+    const analiseData = XLSX.utils.sheet_to_json(analiseSheet, {range: headerIdx});
+    if (!analiseData || analiseData.length === 0) throw new Error("A planilha parece estar vazia ou sem os cabeçalhos corretos.");
+
+    let baseLojistas = analiseData.map(linha => {
+      return {
+        login: (linha["Login"] || linha["login"] || linha["Código"] || "-").toString(),
+        nome: linha["Nome"] || linha["Nome Fantasia"] || linha["Lojista"] || "Desconhecido",
+        dep12: parseNumero(linha["Depositado 12 meses"] || linha["dep12"]), 
+        liq12: parseNumero(linha["Valor 12 meses"] || linha["liq12"]),
+        dep6: parseNumero(linha["Depositado 6 meses"] || linha["dep6"]),   
+        liq6: parseNumero(linha["Valor 6 meses"] || linha["liq6"]),
+        dep3: parseNumero(linha["Depositado 3 meses"] || linha["dep3"]),   
+        liq3: parseNumero(linha["Valor 3 meses"] || linha["liq3"]),
+        taxa: linha["Modalidade"] || linha["Taxa"] || "Padrão",
+        inad12: 0, aprov12: 0, inad6: 0, aprov6: 0, inad3: 0, aprov3: 0
+      };
+    }).filter(l => l.nome !== "Desconhecido" && l.login !== "-");
+
+    // 2. Cruzar dados de Crediário e Cheque (Procura abas compatíveis)
+    function cruzarRiscos(sufixo) {
+        let mapData = {};
+        workbook.SheetNames.forEach(sn => {
+            if(sn.toLowerCase().includes(sufixo) && (sn.toLowerCase().includes('cred') || sn.toLowerCase().includes('cheq'))) {
+                let sheet = workbook.Sheets[sn];
+                let sArr = XLSX.utils.sheet_to_json(sheet, {header: 1});
+                let hIdx = 0;
+                for(let i=0; i<Math.min(sArr.length, 20); i++) {
+                    if(sArr[i] && sArr[i].some(c => typeof c === 'string' && c.toLowerCase().includes('login'))) { hIdx = i; break; }
+                }
+                let sData = XLSX.utils.sheet_to_json(sheet, {range: hIdx});
+                sData.forEach(row => {
+                    let login = (row["Login"] || row["login"]) ? (row["Login"] || row["login"]).toString() : null;
+                    if(login) {
+                        let aprovadas = parseNumero(row["Total Vendas Aprovadas"] || row["Total Aprovado"]);
+                        let negadas = parseNumero(row["Total Vendas Negadas"] || row["Total Negado"]);
+                        let inad = parseNumero(row["Inadimplência"]);
+                        let inadPct = inad > 1 ? inad : inad * 100; // se o excel exportou 0.34 vira 34
+                        let totalVol = aprovadas + negadas;
+                        let aprovPct = totalVol > 0 ? (aprovadas / totalVol) * 100 : 0;
+                        
+                        if (!mapData[login] || mapData[login].vol < totalVol) {
+                            mapData[login] = { inad: inadPct, aprov: aprovPct, vol: totalVol };
+                        }
+                    }
+                });
+            }
+        });
+        baseLojistas.forEach(l => {
+            if(mapData[l.login]) {
+                l[`inad${sufixo}`] = mapData[l.login].inad;
+                l[`aprov${sufixo}`] = mapData[l.login].aprov;
+            }
+        });
+    }
+
+    cruzarRiscos('12'); cruzarRiscos('6'); cruzarRiscos('3');
+    DADOS_LOJISTAS = baseLojistas;
+
+    // 3. Calcula os macros (DADOS_DASH) dinamicamente
+    const periodos = [12, 6, 3];
+    periodos.forEach(p => {
+      let depTotal = 0, liqTotal = 0, posQ = 0, negQ = 0, inatQ = 0;
+      DADOS_LOJISTAS.forEach(l => {
+        let dep = l[`dep${p}`] || 0; let liq = l[`liq${p}`] || 0;
+        depTotal += dep; liqTotal += liq;
+        if(liq > 0) posQ++; else if(liq < 0) negQ++; else inatQ++;
+      });
+      DADOS_DASH[p.toString()] = { depositado: depTotal, liquido: liqTotal, posQtd: posQ, negQtd: negQ, inatQtd: inatQ };
+    });
+
+    esconderLoading();
+    filtrarVisao('TODOS');
+
+  } catch(e) {
+    mostrarErroLoading("Ocorreu um erro ao processar o seu Excel. Tente novamente.<br><br><span style='font-size:0.7rem; font-weight:normal;'>" + e.message + "</span>");
+  }
+}
+
+// UPLOAD MANUAL (Botão Lateral)
+document.getElementById('inputBse').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  mostrarLoading("Processando arquivo Excel...");
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      processarPlanilhaLocal(workbook);
+    } catch(err) {
+      mostrarErroLoading("O arquivo parece corrompido ou tem um formato não suportado.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// CONEXÃO COM A NUVEM (Ao iniciar a página)
+async function carregarDadosDaNuvem() {
+  const baseUrl = "https://docs.google.com/spreadsheets/d/1SW5rJXoKXxJAfOA_dkarHF23mVEM0MaTop_XOUs8_EU/gviz/tq?tqx=out:csv&sheet=";
+  try {
+    const [analiseCsv, cred12Csv, cred6Csv, cred3Csv, chq12Csv, chq6Csv, chq3Csv] = await Promise.all([
+      fetch(baseUrl + encodeURIComponent("analise_rentabilidade")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("12_cred")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("6_cred")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("3_cred")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("12_cheque")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("6_cheque")).then(r => r.text()),
+      fetch(baseUrl + encodeURIComponent("3_cheque")).then(r => r.text())
+    ]);
+
+    if (!analiseCsv || analiseCsv.includes("<!DOCTYPE html>")) throw new Error("Acesso Negado");
+
+    const dummyWb = { Sheets: {}, SheetNames: [] };
+    function attachSheet(csvStr, name) {
+      if(!csvStr || csvStr.includes("<!DOCTYPE html>")) return;
+      let wb = XLSX.read(csvStr, {type: 'string'});
+      dummyWb.Sheets[name] = wb.Sheets[wb.SheetNames[0]];
+      dummyWb.SheetNames.push(name);
+    }
+
+    attachSheet(analiseCsv, 'analise_rentabilidade');
+    attachSheet(cred12Csv, '12_cred'); attachSheet(cred6Csv, '6_cred'); attachSheet(cred3Csv, '3_cred');
+    attachSheet(chq12Csv, '12_cheque'); attachSheet(chq6Csv, '6_cheque'); attachSheet(chq3Csv, '3_cheque');
+
+    processarPlanilhaLocal(dummyWb);
+
+  } catch(e) {
+    mostrarErroLoading("PLANILHA NA NUVEM BLOQUEADA OU AUSENTE.<br><br><span style='font-size:0.7rem; font-weight:normal;'>O seu Google Sheets está privado. Mude para 'Qualquer pessoa com o link' ou faça o Upload Manual no menu lateral.</span>");
+  }
+}
+
+// -----------------------------------------------------------------------------------
+// RENDERIZAÇÃO DA TELA E GRÁFICOS
+// -----------------------------------------------------------------------------------
+
+function limparBuscaEFiltro() { document.getElementById('inputBusca').value = ''; filtrarVisao('TODOS'); }
+
+function filtrarVisao(visao) {
+  if (DADOS_LOJISTAS.length === 0) return; 
+  
+  visaoAtual = visao;
+  const termoBusca = document.getElementById('inputBusca').value.trim().toLowerCase();
+  const periodo = document.getElementById('filtroPeriodo').value;
+  
+  if (visao !== 'TODOS') navegarParaAba('detalhamento');
+  
+  document.querySelectorAll('.kpi-clickable').forEach(el => el.classList.remove('active-filter'));
+  if(visao === 'POSITIVOS') document.getElementById('cardPositivos').classList.add('active-filter');
+  else if(visao === 'NEGATIVOS') document.getElementById('cardNegativos').classList.add('active-filter');
+  else if(visao === 'INATIVOS') document.getElementById('cardInativos').classList.add('active-filter');
+  else document.getElementById('cardGeral').classList.add('active-filter');
+  
+  const btnLimpar = document.getElementById('btnLimparFiltro');
+  if(visao !== 'TODOS' || termoBusca !== '') btnLimpar.classList.add('show-btn');
+  else btnLimpar.classList.remove('show-btn');
+
+  let filtrados = DADOS_LOJISTAS.map(l => {
+    let dep = l[`dep${periodo}`] || 0; let liq = l[`liq${periodo}`] || 0;
+    let inad = l[`inad${periodo}`] || 0; let aprov = l[`aprov${periodo}`] || 0;
+    let rent = null;
+    if (dep > 0) rent = (liq / dep) * 100;
+    else if (dep === 0 && liq === 0) rent = 0;
+    return { ...l, depAtivo: dep, liqAtivo: liq, rent: rent, inadAtivo: inad, aprovAtivo: aprov };
+  });
+
+  if(visao === 'POSITIVOS') filtrados = filtrados.filter(l => l.liqAtivo > 0);
+  if(visao === 'NEGATIVOS') filtrados = filtrados.filter(l => l.liqAtivo < 0);
+  if(visao === 'INATIVOS')  filtrados = filtrados.filter(l => l.depAtivo === 0 && l.liqAtivo === 0);
+
+  if (termoBusca !== '') {
+    filtrados = filtrados.filter(l => l.nome.toLowerCase().includes(termoBusca) || l.login.includes(termoBusca));
+  }
+
+  if(visao === 'NEGATIVOS') filtrados.sort((a, b) => a.liqAtivo - b.liqAtivo); 
+  else filtrados.sort((a, b) => b.liqAtivo - a.liqAtivo); 
+
+  lojistasParaExibir = filtrados;
+  document.getElementById('totalLojistas').textContent = lojistasParaExibir.length;
+
+  let depTotal = 0, liqTotal = 0, posQ = 0, negQ = 0, inatQ = 0;
+
+  if (termoBusca === '' && DADOS_DASH[periodo]) {
+    depTotal = DADOS_DASH[periodo].depositado; liqTotal = DADOS_DASH[periodo].liquido;
+    posQ = DADOS_DASH[periodo].posQtd; negQ = DADOS_DASH[periodo].negQtd; inatQ = DADOS_DASH[periodo].inatQtd;
+    document.getElementById('kpiDepSub').textContent = "Montante Bruto (Toda Carteira)";
+    document.getElementById('kpiLiqSub').textContent = "Rentabilidade Total";
+  } else {
+    lojistasParaExibir.forEach(l => {
+      depTotal += l.depAtivo; liqTotal += l.liqAtivo;
+      if (l.liqAtivo > 0) posQ++; else if (l.liqAtivo < 0) negQ++; else inatQ++;
+    });
+    document.getElementById('kpiDepSub').textContent = "Resultado da Busca";
+    document.getElementById('kpiLiqSub').textContent = "Resultado da Busca";
+  }
+
+  document.getElementById('kpiDepositado').textContent = fmtK(depTotal);
+  document.getElementById('kpiLiquido').textContent = fmtK(liqTotal);
+  document.getElementById('kpiPositivos').textContent = posQ;
+  document.getElementById('kpiNegativos').textContent = negQ;
+  document.getElementById('kpiInativos').textContent = inatQ;
+
+  const desc = termoBusca !== '' ? `Buscando: "${termoBusca}"` : (visao === 'TODOS' ? 'Visão Consolidada' : (visao === 'POSITIVOS' ? 'Positivos (Lucro)' : (visao === 'NEGATIVOS' ? 'Negativos (Prejuízo)' : 'Inativos')));
+  document.getElementById('tituloTabela').innerHTML = `<span class="line"></span>Extrato Analítico (${desc})`;
+  document.getElementById('tituloGraficoRanking').innerHTML = `<span class="line"></span>${visao === 'NEGATIVOS' ? 'Ranking Geral de Prejuízos' : 'Ranking Geral de Rentabilidade'}`;
+
+  renderizarTabelaERanking();
+  renderizarGraficosGerais(posQ, negQ, inatQ, periodo);
+  renderizarGraficosComplementares(periodo);
+}
+
+function renderizarGraficosGerais(posQ, negQ, inatQ, periodo) {
+  if(!DADOS_DASH["12"]) return;
+  const textColor = getCssVar('--text'); const gridColor = getCssVar('--chart-grid');
+  const maxDepositado = Math.max(DADOS_DASH["3"].depositado, DADOS_DASH["6"].depositado, DADOS_DASH["12"].depositado);
+  const chartEvolData = [DADOS_DASH["3"].depositado, DADOS_DASH["6"].depositado, DADOS_DASH["12"].depositado];
+  const chartEvolLiq = [DADOS_DASH["3"].liquido, DADOS_DASH["6"].liquido, DADOS_DASH["12"].liquido];
+
+  if(charts['chartEvolucao']) {
+    charts['chartEvolucao'].data.datasets[0].data = chartEvolData;
+    charts['chartEvolucao'].data.datasets[1].data = chartEvolLiq;
+    charts['chartEvolucao'].update();
+  } else {
+    charts['chartEvolucao'] = new Chart(document.getElementById('chartEvolucao'), {
+      type: 'bar', data: { labels: ['Últ. 3 M', 'Últ. 6 M', 'Últ. 12 M'], datasets: [ { label: 'Depositado', data: chartEvolData, backgroundColor: getCssVar('--gray50'), borderRadius: 4 }, { label: 'Valor Líquido', data: chartEvolLiq, backgroundColor: getCssVar('--green'), borderRadius: 4 } ] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor, font:{size:10}, boxWidth:12 } }, datalabels: { align: 'top', anchor: 'end', color: textColor, formatter: v => fmtK(v), font:{size:10} } }, scales: { x: { grid: { display: false }, ticks: { color: textColor, font:{size:11} } }, y: { beginAtZero: true, suggestedMax: maxDepositado * 1.20, grid: { color: gridColor }, ticks: { color: textColor, font:{size:10}, callback: v => fmtK(v) } } } }
+    });
+  }
+
+  if(charts['chartCarteira']) {
+    charts['chartCarteira'].data.datasets[0].data = [posQ, negQ, inatQ];
+    charts['chartCarteira'].update();
+  } else {
+    charts['chartCarteira'] = new Chart(document.getElementById('chartCarteira'), {
+      type: 'doughnut', data: { labels: ['Positivos', 'Negativos', 'Inativos'], datasets: [{ data: [posQ, negQ, inatQ], backgroundColor: [getCssVar('--green'), getCssVar('--red'), getCssVar('--gray50')], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '60%', layout: { padding: 15 }, plugins: { legend: { position: 'right', labels: { color: textColor, font:{size:10}, boxWidth:12 } }, datalabels: { color: '#fff', font: {size: 12} } } }
+    });
+  }
+}
+
+function renderizarGraficosComplementares(periodo) {
+  const textColor = getCssVar('--text');
+  let arrAtivo = lojistasParaExibir.length > 0 ? lojistasParaExibir : DADOS_LOJISTAS.map(l => ({ nome: l.nome, depAtivo: l[`dep${periodo}`] || 0, inadAtivo: l[`inad${periodo}`] || 0 }));
+  arrAtivo = arrAtivo.filter(l => l.depAtivo > 0);
+  
+  let topVolumes = [...arrAtivo].sort((a,b) => b.depAtivo - a.depAtivo).slice(0, 10);
+  if(charts['chartTopVolumes']) charts['chartTopVolumes'].destroy();
+  charts['chartTopVolumes'] = new Chart(document.getElementById('chartTopVolumes'), {
+    type: 'bar', data: { labels: topVolumes.map(t => truncate(t.nome, 12)), datasets: [{ label: 'Volume', data: topVolumes.map(t => t.depAtivo), backgroundColor: getCssVar('--gray50'), borderRadius: 3 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout:{padding:{right:45, left:0}}, plugins: { legend: { display: false }, datalabels: { align: 'right', anchor: 'end', color: textColor, formatter: v => fmtK(v), font:{size:9} } }, scales: { x: { display: false }, y: { grid: { display: false }, ticks: { color: textColor, font:{size: 9}, autoSkip: false } } } }
+  });
+
+  let topInad = [...arrAtivo].sort((a,b) => b.inadAtivo - a.inadAtivo).slice(0, 10);
+  if(charts['chartInadimplencia']) charts['chartInadimplencia'].destroy();
+  charts['chartInadimplencia'] = new Chart(document.getElementById('chartInadimplencia'), {
+    type: 'bar', data: { labels: topInad.map(t => truncate(t.nome, 12)), datasets: [{ label: 'Inadimplência (%)', data: topInad.map(t => t.inadAtivo), backgroundColor: getCssVar('--orange'), borderRadius: 3 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout:{padding:{right:40, left:0}}, plugins: { legend: { display: false }, datalabels: { align: 'right', anchor: 'end', color: textColor, formatter: v => v.toFixed(1)+'%', font:{size:9} } }, scales: { x: { display: false, max: 100 }, y: { grid: { display: false }, ticks: { color: textColor, font:{size: 9}, autoSkip: false } } } }
+  });
+}
+
+function renderizarTabelaERanking() {
+  const tbody = document.getElementById('tabelaLojistas');
+  tbody.innerHTML = '';
+  
+  if (lojistasParaExibir.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color:var(--text-muted);">Nenhum lojista encontrado.</td></tr>`;
+  }
+  
+  let arrayRanking = lojistasParaExibir.filter(l => !(l.depAtivo === 0 && l.liqAtivo === 0));
+
+  lojistasParaExibir.forEach(l => {
+    let rentColor = 'var(--text)';
+    let rentLabel = '<span class="tag tag-gray" style="background:transparent;border:none;">N/A</span>';
+    if (l.rent !== null) {
+       rentColor = l.rent >= 0 ? 'var(--green)' : 'var(--red)';
+       let rentIcon = l.rent > 0 ? '▲' : (l.rent < 0 ? '▼' : '-');
+       rentLabel = `${rentIcon} ${l.rent.toFixed(2)}%`;
+       if (l.depAtivo === 0 && l.liqAtivo === 0) rentLabel = '<span class="tag tag-gray">S/ OP</span>';
+    } else { rentLabel = '<span class="tag tag-gray" title="Receita líquida sem depósito registrado no período.">N/A</span>'; }
+
+    let inadColor = l.inadAtivo > 30 ? 'var(--red)' : 'var(--text)';
+    let taxaCurta = l.taxa.length > 15 ? l.taxa.substring(0,15) + '...' : l.taxa;
+
+    tbody.innerHTML += `
+      <tr>
+        <td style="font-weight:700;"><span class="login-tag">#${l.login}</span> ${l.nome}</td>
+        <td class="text-right">${fmt(l.depAtivo)}</td>
+        <td class="text-right" style="font-weight:700;">${fmt(l.liqAtivo)}</td>
+        <td class="text-right" style="color:${rentColor}; font-weight:700;">${rentLabel}</td>
+        <td title="${l.taxa}"><span class="tag tag-gray">${taxaCurta}</span></td>
+        <td class="text-right" style="color:${inadColor}; font-weight:700;">${l.inadAtivo.toFixed(1)}%</td>
+        <td class="text-right">${l.aprovAtivo.toFixed(1)}%</td>
+      </tr>
+    `;
+  });
+
+  const corBarra = visaoAtual === 'NEGATIVOS' ? getCssVar('--red') : getCssVar('--green');
+  const textColor = getCssVar('--text');
+
+  let maxX = 0, minX = 0;
+  if (arrayRanking.length > 0) {
+     if(visaoAtual === 'NEGATIVOS') minX = Math.min(...arrayRanking.map(t=>t.liqAtivo)) * 1.2; 
+     else maxX = Math.max(...arrayRanking.map(t=>t.liqAtivo)) * 1.2; 
+  }
+
+  const wrapper = document.getElementById('rankingCanvasWrapper');
+  wrapper.style.height = (arrayRanking.length === 0 ? 100 : Math.max(200, arrayRanking.length * 35)) + 'px';
+
+  if (charts['chartTopLojistas']) charts['chartTopLojistas'].destroy();
+  if (arrayRanking.length === 0) return;
+
+  charts['chartTopLojistas'] = new Chart(document.getElementById('chartTopLojistas'), {
+    type: 'bar',
+    data: {
+      labels: arrayRanking.map(t => truncate(t.nome, 16)), 
+      datasets: [{ label: 'Valor Líquido', data: arrayRanking.map(t => t.liqAtivo), backgroundColor: corBarra, borderRadius: 3 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout:{padding:{right:45, left:0}},
+      plugins: { legend: { display: false }, datalabels: { align: visaoAtual === 'NEGATIVOS' ? 'left' : 'right', anchor: visaoAtual === 'NEGATIVOS' ? 'start' : 'end', color: textColor, formatter: v => fmtK(v), font:{size:10} } },
+      scales: { x: { display: false, max: maxX > 0 ? maxX : undefined, min: minX < 0 ? minX : undefined }, y: { grid: { display: false }, ticks: { color: textColor, font:{size: 9}, autoSkip: false } } }
+    }
+  });
+}
+
+function exportarCSV() {
+  if(lojistasParaExibir.length === 0) return alert("Não há dados.");
+  let csv = "Login,Lojista,Depositado,Valor Liquido,Rentabilidade (%),Taxa Mensal,Inadimplencia (%),Aprovacao (%)\n";
+  lojistasParaExibir.forEach(l => {
+    let dep = l.depAtivo.toFixed(2).replace('.',','); let liq = l.liqAtivo.toFixed(2).replace('.',','); 
+    let rent = l.rent !== null ? l.rent.toFixed(2).replace('.',',') : "N/A"; 
+    let inad = l.inadAtivo.toFixed(1).replace('.',','); let aprov = l.aprovAtivo.toFixed(1).replace('.',',');
+    csv += `"${l.login}","${l.nome}",${dep},${liq},"${rent}","${l.taxa}",${inad},${aprov}\n`;
+  });
+  const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))); 
+  const termo = document.getElementById('inputBusca').value.trim();
+  link.setAttribute("download", termo !== '' ? `Exportacao_Busca_${termo}.csv` : `Exportacao_${visaoAtual}_${document.getElementById('filtroPeriodo').value}M.csv`);
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+window.onload = carregarDadosDaNuvem;
+</script>
+</body>
+</html>
